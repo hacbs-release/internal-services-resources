@@ -1,4 +1,5 @@
 # Verified working on https://console-openshift-console.apps.hacbs-rel-11.d1xx.p1.openshiftapps.com/
+---
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
