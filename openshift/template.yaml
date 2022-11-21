@@ -68,7 +68,8 @@ objects:
             cp -vr /configs /var/iib/imageconfigs
             cp -vr /var/lib/iib/_hidden/do.not.edit.db /var/iib/imageconfigs/index.db
             ##opm serve /configs --port=50051 -t /dev/null
-            opm serve /configs --port=50051 --debug
+            echo "Starting opm..."
+            opm serve /configs --port=50051 --debug -t /dev/termination-log
           volumeMounts:
             - name: imageconfigs
               mountPath: /var/iib/imageconfigs
