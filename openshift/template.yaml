@@ -94,6 +94,6 @@ objects:
   - apiVersion: v1
     kind: ServiceAccount
     metadata:
-    name: iib-pipeline-service-account
+      name: iib-pipeline-service-account
     secrets:
     - name: registry.redhat.io-creds
