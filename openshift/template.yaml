@@ -31,6 +31,8 @@ objects:
             sed -i 's/^short-name-mode = .*/short-name-mode = "disabled"/' /etc/containers/registries.conf
             echo "Simulating IIB Add Request"
             # skopeo --command-timeout 300s inspect docker://registry-proxy.engineering.redhat.com/rh-osbs/iib-pub:v4.11 --raw
+            echo "Sleeping 120s"
+            sleep 120s
             grpcurl -connect-timeout 600 -plaintext localhost:50051 list api.Registry 
             # grpcurl -plaintext localhost:50051 api.Registry/ListBundles
             opm registry add --database /var/iib/imageconfigs/index.db --enable-alpha --bundle-images "" --overwrite-latest
