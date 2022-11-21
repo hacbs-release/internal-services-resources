@@ -91,9 +91,9 @@ objects:
         - name: iib-operations
           taskRef:
             name: iib-operations
-   - apiVersion: v1
-     kind: ServiceAccount
-     metadata:
-     name: iib-pipeline-service-account
-     secrets:
-     - name: registry.redhat.io-creds
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+    name: iib-pipeline-service-account
+    secrets:
+    - name: registry.redhat.io-creds
