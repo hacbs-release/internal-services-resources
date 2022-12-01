@@ -1,100 +1,212 @@
 apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
-  name: hacbs-iib-trigger-template
+  name: hacbs-internal-services-resources-template
 objects:
-  - apiVersion: tekton.dev/v1beta1
-    kind: Task
-    metadata:
-      name: iib-operations
-    spec:
-      stepTemplate:
-        env:
-          - name: STORAGE_DRIVER
-            value: vfs
-      steps:
-        - name: iib-add-poc
-          image: registry.access.redhat.com/ubi8/ubi
-          resources:
-            limits:
-              memory: 2Gi
-              cpu: 200m
-            requests:
-              memory: 2Gi
-              cpu: 200m
-          script: |
-            curl -L https://github.com/fullstorydev/grpcurl/releases/download/v1.8.5/grpcurl_1.8.5_linux_x86_64.tar.gz -o /var/grpcurl_1.8.5_linux_x86_64.tar.gz
-            cd /usr/bin && tar -xf /var/grpcurl_1.8.5_linux_x86_64.tar.gz grpcurl && rm -f /var/grpcurl_1.8.5_linux_x86_64.tar.gz
-            curl -L https://github.com/operator-framework/operator-registry/releases/download/v1.23.2/linux-amd64-opm -o /var/opm
-            cp /var/opm /usr/bin/opm && chmod 0555 /usr/bin/opm  && rm -f /var/opm
-            yum -y install buildah podman skopeo jq
-            sed -i 's/^short-name-mode = .*/short-name-mode = "disabled"/' /etc/containers/registries.conf
-            echo "Simulating IIB Add Request"
-            # skopeo --command-timeout 300s inspect docker://registry-proxy.engineering.redhat.com/rh-osbs/iib-pub:v4.11 --raw
-            echo "Sleeping 120s"
-            sleep 120s
-            grpcurl -connect-timeout 600 -plaintext localhost:50051 list api.Registry 
-            # grpcurl -plaintext localhost:50051 api.Registry/ListBundles
-            opm registry add --database /var/iib/imageconfigs/index.db --enable-alpha --bundle-images "" --overwrite-latest
-            opm migrate /var/iib/imageconfigs/index.db /tmp/iib-xnlfzy4l/catalog
-            opm generate dockerfile /tmp/iib-xnlfzy4l/catalog --binary-image registry.redhat.io/openshift4/ose-operator-registry:v4.11
-            cd /tmp/iib-xnlfzy4l/
-            buildah bud --no-cache --format docker --override-arch amd64 --arch amd64 -t iib-build:312452-amd64 -f /tmp/iib-xnlfzy4l/catalog.Dockerfile .
-            buildah bud --no-cache --format docker --override-arch arm64 --arch arm64 -t iib-build:312452-arm64 -f /tmp/iib-xnlfzy4l/catalog.Dockerfile .
-            podman push -q iib-build:312452-amd64 docker://quay.io/scoheb/tekton-iib-test:312452-amd64
-            podman push -q iib-build:312452-arm64 docker://quay.io/scoheb/tekton-iib-test:312452-arm64
-            buildah manifest create quay.io/scoheb/tekton-iib-test:312452
-            buildah manifest add quay.io/scoheb/tekton-iib-test:312452 docker://quay.io/scoheb/tekton-iib-test:312452-amd64
-            buildah manifest add quay.io/scoheb/tekton-iib-test:312452 docker://quay.io/scoheb/tekton-iib-test:312452-arm64
-            buildah manifest push --all --format v2s2 quay.io/scoheb/tekton-iib-test:312452 docker://quay.io/scoheb/tekton-iib-test:312452
-            echo "Index Image uploaded successfully"
-          securityContext:
-            capabilities:
-              add:
-                - SETFCAP
-          volumeMounts:
-            - name: imageconfigs
-              mountPath: /var/iib/imageconfigs
-      sidecars:
-        - name: grpc
-          ##image: registry.redhat.io/redhat/redhat-operator-index:v4.11
-          image: quay.io/scoheb/iib-pub-pending:v4.12
-          resources:
-            limits:
-              memory: 2Gi
-              cpu: 200m
-            requests:
-              memory: 2Gi
-              cpu: 200m
-          script: |
-            cp -vr /configs /var/iib/imageconfigs
-            cp -vr /var/lib/iib/_hidden/do.not.edit.db /var/iib/imageconfigs/index.db
-            ##opm serve /configs --port=50051 -t /dev/null
-            echo "Starting opm..."
-            opm serve /configs --port=50051 --debug -t /dev/termination-log
-          volumeMounts:
-            - name: imageconfigs
-              mountPath: /var/iib/imageconfigs
-            - mountPath: /var/lib/containers
-              name: varlibcontainers
-      volumes:
-        - emptyDir: {}
-          name: imageconfigs
-        - emptyDir: {}
-          name: varlibcontainers
   - apiVersion: tekton.dev/v1beta1
     kind: Pipeline
     metadata:
-      name: iib-add
+      name: bundle-fbc-pipelinerun
+      labels:
+        app.kubernetes.io/version: "0.1"
+      annotations:
+        tekton.dev/pipelines.minVersion: "0.12.1"
+        tekton.dev/tags: fbc
     spec:
+      description: >-
+        Tekton pipeline to interact with IIB service for File Based Catalogs
+      params:
+        - name: binaryImage
+          type: string
+          description: The Snapshot in JSON format
+        - name: iibServiceUrl
+          type: string
+          description: IIB service URL
+        - name: iibServiceSecret
+          type: string
+          description: Secret containing the credentials for IIB service
+        - name: fbcFragment
+          type: string
+          description: FBC fragment built by HACBS
+        - name: fromIndex
+          type: string
+          description: Index image (catalog of catalogs) the FBC fragment will be added to
+        - name: overwriteFromIndex
+          type: string
+          description: Boolean indicating if the from_index should be overwritten
+        - name: buildTags
+          type: string
+          description: List of additional tags the internal index image copy should be tagged with
+        - name: buildTimeoutSeconds
+          type: string
+          description: IIB Build Service timeout seconds
+      workspaces:
+        - name: release-workspace
       tasks:
-        - name: iib-operations
+        - name: add-fbc-fragment-to-index-image
           taskRef:
-            name: iib-operations
+            name: add-fbc-fragment-to-index-image
+          params:
+            - name: BINARY_IMAGE
+              value: $(params.binaryImage)
+            - name: IIB_SERVICE_URL
+              value: $(params.iibServiceUrl)
+            - name: IIB_SERVICE_SECRET
+              value: $(params.iibServiceSecret)
+            - name: FBC_FRAGMENT
+              value: $(params.fbcFragment)
+            - name: FROM_INDEX
+              value: $(params.fromIndex)
+            - name: OVERWRITE_FROM_INDEX
+              value: $(params.overwriteFromIndex)
+            - name: BUILD_TAGS
+              value: $(params.buildTags)
+            - name: BUILD_TIMEOUT_SECONDS
+              value: $(params.iibBuildTimeoutSeconds)
+  - apiVersion: tekton.dev/v1beta1
+    kind: Task
+    metadata:
+      name: add-fbc-fragment-to-index-image
+      labels:
+        app.kubernetes.io/version: "0.1"
+      annotations:
+        tekton.dev/pipelines.minVersion: "0.12.1"
+        tekton.dev/tags: release
+    spec:
+      description: >-
+        Submit a build request to add operator bundles to an index image
+      params:
+        - name: BINARY_IMAGE
+          type: string
+          description: FBC Image to be added to index image
+        - name: IIB_SERVICE_URL
+          type: string
+          default: ""
+          description: IIB service URL
+        - name: IIB_SERVICE_SECRET
+          type: string
+          default: "iib-service-account"
+          description: Secret with IIB credentials to be used
+        - name: FBC_FRAGMENT
+          type: string
+          description: FBC fragment built by HACBS
+        - name: FROM_INDEX
+          type: string
+          description: Index image (catalog of catalogs) the FBC fragment will be added to
+        - name: OVERWRITE_FROM_INDEX
+          type: string
+          description: Boolean indicating if the from_index should be overwritten
+        - name: BUILD_TAGS
+          type: string
+          description: List of additional tags the internal index image copy should be tagged with
+        - name: BUILD_TIMEOUT_SECONDS
+          type: string
+          default: "300"
+          description: Timeout seconds to receive the build state
+      results:
+        - name: json_build_info
+          description: JSON build information for the requested build
+        - name: build_state
+          description: IIB Service build state
+      steps:
+        - name: add-fbc-fragment-to-index-image
+          image: quay.io/hacbs-release/release-utils:latest
+          script: |
+            #!/usr/bin/env bash
+            #
+            # adds the json request parameters to a file to be used as input data
+            # for curl and preventing shell expansion.
+            #
+            json_input=/tmp/$$.tmp
+            cat > $json_input <<JSON
+            {
+              "from_index": "$(params.FROM_INDEX)",
+              "binary_image": "$(params.BINARY_IMAGE)",
+              "overwrite_from_index_token": "{TOKEN}",
+              "overwrite_from_index": $(params.OVERWRITE_FROM_INDEX),
+              "build_tags": $(params.BUILD_TAGS)
+            }
+            JSON
+
+            # replaces {TOKEN} placeholder with registry credentials.
+            if [ -f /mnt/service-secret/registry_token ]; then
+                CREDS=$(cat /mnt/service-secret/registry_token)
+                sed -i "s/{TOKEN}/${CREDS}/g" ${json_input}
+            fi
+
+            # performs kerberos authentication.
+            # prioritizes using keytab over username/password.
+            #
+            KRB5_CONFIG=/mnt/service-secret/krb5.conf
+            KRB5_KTNAME=$(cat /mnt/service/secret/krb5_keytab)
+
+            export KRB5_CONFIG KRB5_KTNAME
+
+            if [ -f ${KRB5_KTNAME} ]; then
+              /usr/bin/kinit $(cat /mnt/service-secret/krb5_username) -k
+            else
+              /usr/bin/kinit $(cat /mnt/service-secret/krb5_username) < /mnt/service-secret/krb5_password
+            fi
+
+            # adds image to the index.
+            /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
+            "$(params.IIB_SERVICE_URL)/fbc-operations/add" | jq | tee $(results.json_build_info.path)
+
+            # checks if the previous call returned an error.
+            ! jq -e -r ".error | select( . != null )" $(results.json_build_info.path)
+          volumeMounts:
+            - name: service-secret
+              mountPath: /mnt/service-secret
+        - name: wait-for-build-state
+          image: quay.io/hacbs-release/release-utils:latest
+          script: |
+            #!/usr/bin/env bash
+            #
+            TASKRUN="/tmp/$$.sh"
+            cat > ${TASKRUN} <<SH
+            #!/usr/bin/env bash
+            #
+            build_id=`jq -r ".id" $(results.json_build_info.path)`
+            state=""
+            while true; do
+                #
+                # fetching build information.
+                build_info=\$(/usr/bin/curl -s --insecure "$(params.IIB_SERVICE_URL)/fbc-operations/\${build_id}")
+
+                # get state from the build information.
+                state=\$(jq -r ".index_image_resolved.state" <<< \${build_info})
+                case \${state} in
+                  "complete") break ;;
+                  "failed") break ;;
+                  *) echo -en "."; sleep 30; continue ;;
+                esac
+            done
+            echo
+            jq '{ "state": .state, "state_reason": .state_reason }' <<< \${build_info} | tee $(results.build_state.path)
+            test \${state} = "complete" && exit 0 || exit 1
+            SH
+
+            chmod +x ${TASKRUN}
+            echo -en "waiting for build state to exit..."
+
+            # adding timeout here due to the Task timeout not accepting $(params.BUILD_TIMEOUT_SECONDS)
+            # as parameter.
+            timeout $(params.BUILD_TIMEOUT_SECONDS) ${TASKRUN}
+            SYSEXIT=$?
+
+            [ ${SYSEXIT} -eq 124 ] && echo "Timeout while waiting for the build to finish"
+
+            exit ${SYSEXIT}
+      volumes:
+        - name: service-secret
+          secret:
+            secretName: $(params.IIB_SERVICE_SECRET)
+            defaultMode:
+              0400
   - apiVersion: v1
     kind: ServiceAccount
     metadata:
       name: pipeline
     secrets:
-    - name: registry.redhat.io-creds
-    - name: quay.io-creds
+    - name: iib-service-account
+    - name: iib-production-services-url
