@@ -57,8 +57,8 @@ objects:
               mountPath: /var/iib/imageconfigs
       sidecars:
         - name: grpc
-          image: registry.redhat.io/redhat/redhat-operator-index:v4.11
-          ##image: quay.io/scoheb/iib-pub-pending:v4.12
+          ##image: registry.redhat.io/redhat/redhat-operator-index:v4.11
+          image: quay.io/scoheb/iib-pub-pending:v4.12
           resources:
             limits:
               memory: 2Gi
