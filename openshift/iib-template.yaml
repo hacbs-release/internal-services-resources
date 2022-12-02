@@ -16,6 +16,9 @@ objects:
       description: >-
         Tekton pipeline to interact with IIB service for File Based Catalogs
       params:
+        - name: iibServiceUrlSecret
+          type: string
+          description: Secret containing IIB service URL
         - name: iibServiceSecret
           type: string
           description: Secret containing the credentials for IIB service
@@ -26,6 +29,8 @@ objects:
           taskRef:
             name: simple-task
           params:
+            - name: IIB_SERVICE_URL_SECRET
+              value: $(params.iibServiceUrlSecret)
             - name: IIB_SERVICE_SECRET
               value: $(params.iibServiceSecret)
   - apiVersion: tekton.dev/v1beta1
@@ -41,6 +46,10 @@ objects:
       description: >-
         Submit a build request to add operator bundles to an index image
       params:
+        - name: IIB_SERVICE_URL_SECRET
+          type: string
+          default: "ib-production-services-url"
+          description: Secret with IIB service URL to be used
         - name: IIB_SERVICE_SECRET
           type: string
           default: "iib-service-account"
@@ -57,12 +66,22 @@ objects:
             ls -l /mnt/service-secret/
             PRINCIPAL=$(cat /mnt/service-secret/principal)
             echo "kinit ${PRINCIPAL} -k -t /mnt/service-secret/keytab"
+            ls -l /mnt/service-url-secret/
+            IIB_SERVICE_URL=$(cat /mnt/service-url-secret/url)
+            echo "${IIB_SERVICE_URL}"
           volumeMounts:
             - name: service-secret
               mountPath: /mnt/service-secret
+            - name: service-url-secret
+              mountPath: /mnt/service-url-secret
       volumes:
         - name: service-secret
           secret:
             secretName: $(params.IIB_SERVICE_SECRET)
+            defaultMode:
+              0400
+        - name: service-url-secret
+          secret:
+            secretName: $(params.IIB_SERVICE_URL_SECRET)
             defaultMode:
               0400
