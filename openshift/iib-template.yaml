@@ -203,10 +203,3 @@ objects:
             secretName: $(params.IIB_SERVICE_SECRET)
             defaultMode:
               0400
-  - apiVersion: v1
-    kind: ServiceAccount
-    metadata:
-      name: pipeline
-    secrets:
-    - name: iib-service-account
-    - name: iib-production-services-url
