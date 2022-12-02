@@ -62,7 +62,7 @@ objects:
             - name: BUILD_TAGS
               value: $(params.buildTags)
             - name: BUILD_TIMEOUT_SECONDS
-              value: $(params.iibBuildTimeoutSeconds)
+              value: $(params.buildTimeoutSeconds)
   - apiVersion: tekton.dev/v1beta1
     kind: Task
     metadata:
