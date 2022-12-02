@@ -56,19 +56,26 @@ objects:
           description: Secret with IIB credentials to be used
       steps:
         - name: simple-step
-          image: quay.io/hacbs-release/release-utils:latest
+          image: quay.io/scoheb/release-utils:main
           script: |
             #!/usr/bin/env bash
             #
             # adds the json request parameters to a file to be used as input data
             # for curl and preventing shell expansion.
             #
-            ls -l /mnt/service-secret/
             PRINCIPAL=$(cat /mnt/service-secret/principal)
-            echo "kinit ${PRINCIPAL} -k -t /mnt/service-secret/keytab"
-            ls -l /mnt/service-url-secret/
+            KEYTAB=/tmp/keytab
+            cat /mnt/service-secret/keytab | base64 -d > /tmp/keytab
+            echo ""
+            echo "Running kinit ${PRINCIPAL} -k -t /tmp/keytab"
+            kinit ${PRINCIPAL} -k -t /tmp/keytab
+            echo ""
+            echo "Kerberos tickets:"
+            klist
+            echo ""
             IIB_SERVICE_URL=$(cat /mnt/service-url-secret/url)
-            echo "${IIB_SERVICE_URL}"
+            echo "IIB Service URL: ${IIB_SERVICE_URL}"
+            echo ""
           volumeMounts:
             - name: service-secret
               mountPath: /mnt/service-secret

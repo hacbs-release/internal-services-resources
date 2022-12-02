@@ -110,7 +110,7 @@ objects:
           description: IIB Service build state
       steps:
         - name: add-fbc-fragment-to-index-image
-          image: quay.io/hacbs-release/release-utils:latest
+          image: quay.io/hacbs-release/release-utils@sha256:96cbef245242872c134e6eb3b9067bdd9d055d972e91fc3232f0b9e31dab748b
           script: |
             #!/usr/bin/env bash
             #
