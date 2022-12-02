@@ -1,0 +1,11 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: hacbs-internal-services-resources-errata-template
+objects:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: pipeline
+    secrets:
+    - name: errata-service-account
