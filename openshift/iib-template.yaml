@@ -16,27 +16,63 @@ objects:
       description: >-
         Tekton pipeline to interact with IIB service for File Based Catalogs
       params:
-        - name: iibServiceUrlSecret
+        - name: binaryImage
           type: string
-          description: Secret containing IIB service URL
-        - name: iibServiceSecret
+          description: The Snapshot in JSON format
+        - name: iibServiceConfigSecret
+          type: string
+          description: Secret containing IIB service Config
+        - name: iibServiceAccountSecret
           type: string
           description: Secret containing the credentials for IIB service
+        - name: fbcFragment
+          type: string
+          description: FBC fragment built by HACBS
+        - name: fromIndex
+          type: string
+          description: Index image (catalog of catalogs) the FBC fragment will be added to
+        - name: overwriteFromIndex
+          type: string
+          description: Boolean indicating if the from_index should be overwritten
+        - name: buildTags
+          type: string
+          description: List of additional tags the internal index image copy should be tagged with
+        - name: addArches
+          type: string
+          description: List of arches the index image should be built for
+        - name: buildTimeoutSeconds
+          type: string
+          description: IIB Build Service timeout seconds
       workspaces:
         - name: release-workspace
       tasks:
-        - name: simple-task
+        - name: add-fbc-fragment-to-index-image
           taskRef:
-            name: simple-task
+            name: add-fbc-fragment-to-index-image
+            bundle: quay.io/hacbs-release/task-add-fbc-fragment-to-index-image:0.1
           params:
-            - name: IIB_SERVICE_URL_SECRET
-              value: $(params.iibServiceUrlSecret)
-            - name: IIB_SERVICE_SECRET
-              value: $(params.iibServiceSecret)
+            - name: binaryImage
+              value: $(params.binaryImage)
+            - name:  iibServiceConfigSecret
+              value: $(params.iibServiceConfigSecret)
+            - name: iibServiceAccountSecret
+              value: $(params.iibServiceAccountSecret)
+            - name: fbcFragment
+              value: $(params.fbcFragment)
+            - name: fromIndex
+              value: $(params.fromIndex)
+            - name: overwriteFromIndex
+              value: $(params.overwriteFromIndex)
+            - name: buildTags
+              value: $(params.buildTags)
+            - name: addArches
+              value: $(params.addArches)
+            - name: buildTimeoutSeconds
+              value: $(params.buildTimeoutSeconds)
   - apiVersion: tekton.dev/v1beta1
     kind: Task
     metadata:
-      name: simple-task
+      name: add-fbc-fragment-to-index-image
       labels:
         app.kubernetes.io/version: "0.1"
       annotations:
@@ -46,49 +82,130 @@ objects:
       description: >-
         Submit a build request to add operator bundles to an index image
       params:
-        - name: IIB_SERVICE_URL_SECRET
+        - name: binaryImage
           type: string
-          default: "ib-production-services-url"
-          description: Secret with IIB service URL to be used
-        - name: IIB_SERVICE_SECRET
+          description: FBC Image to be added to index image
+        - name: iibServiceConfigSecret
+          type: string
+          default: "iib-production-services-config"
+          description: Secret with IIB service config to be used
+        - name: iibServiceAccountSecret
           type: string
           default: "iib-service-account"
           description: Secret with IIB credentials to be used
+        - name: fbcFragment
+          type: string
+          description: FBC fragment built by HACBS
+        - name: fromIndex
+          type: string
+          description: Index image (catalog of catalogs) the FBC fragment will be added to
+        - name: overwriteFromIndex
+          type: string
+          description: Boolean indicating if the from_index should be overwritten
+        - name: buildTags
+          type: string
+          description: List of additional tags the internal index image copy should be tagged with
+        - name: addArches
+          type: string
+          description: List of arches the index image should be built for
+        - name: buildTimeoutSeconds
+          type: string
+          default: "300"
+          description: Timeout seconds to receive the build state
+      results:
+        - name: json_build_info
+          description: JSON build information for the requested build
+        - name: build_state
+          description: IIB Service build state
       steps:
-        - name: simple-step
-          image: quay.io/scoheb/release-utils:main
+        - name: add-fbc-fragment-to-index-image
+          image: quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
+          env:
+            - name: IIB_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: iib-production-services-config
+                  key: url
+            - name: IIB_OVERWRITE_FROM_INDEX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: iib-production-services-config
+                  key: overwriteFromIndexToken
           script: |
             #!/usr/bin/env bash
             #
             # adds the json request parameters to a file to be used as input data
             # for curl and preventing shell expansion.
-            #
-            PRINCIPAL=$(cat /mnt/service-secret/principal)
-            KEYTAB=/tmp/keytab
-            cat /mnt/service-secret/keytab | base64 -d > /tmp/keytab
-            echo ""
-            echo "Running kinit ${PRINCIPAL} -k -t /tmp/keytab"
-            kinit ${PRINCIPAL} -k -t /tmp/keytab
-            echo ""
-            echo "Kerberos tickets:"
-            klist
-            echo ""
-            IIB_SERVICE_URL=$(cat /mnt/service-url-secret/url)
-            echo "IIB Service URL: ${IIB_SERVICE_URL}"
-            echo ""
+            json_input=/tmp/$$.tmp
+            cat > $json_input <<JSON
+            {
+              "from_index": "$(params.fromIndex)",
+              "binary_image": "$(params.binaryImage)",
+              "overwrite_from_index_token": "${IIB_OVERWRITE_FROM_INDEX_TOKEN}",
+              "overwrite_from_index": $(params.overwriteFromIndex),
+              "build_tags": $(params.buildTags)
+              "add_arches": $(params.addArches)
+            }
+            JSON
+
+            # performs kerberos authentication.
+            KRB5_KTNAME=/mnt/service-account-secret/keytab
+            export KRB5_KTNAME
+
+            /usr/bin/kinit $(cat /mnt/service-account-secret/principal) -k
+
+            # adds image to the index.
+            /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
+            "${IIB_SERVICE_URL}/fbc-operations/add" | jq | tee $(results.json_build_info.path)
+
+            # checks if the previous call returned an error.
+            ! jq -e -r ".error | select( . != null )" $(results.json_build_info.path)
           volumeMounts:
-            - name: service-secret
-              mountPath: /mnt/service-secret
-            - name: service-url-secret
-              mountPath: /mnt/service-url-secret
+            - name: service-account-secret
+              mountPath: /mnt/service-account-secret
+        - name: wait-for-build-state
+          image: quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
+          env:
+            - name: IIB_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: $(params.iibServiceConfigSecret)
+                  key: url
+          script: |
+            #!/usr/bin/env bash
+            TASKRUN="/tmp/$$.sh"
+            cat > ${TASKRUN} <<SH
+            #!/usr/bin/env bash
+            #
+            build_id=`jq -r ".id" $(results.json_build_info.path)`
+            state=""
+            while true; do
+                #
+                # fetching build information.
+                build_info=\$(/usr/bin/curl -s --insecure "\${IIB_SERVICE_URL}/fbc-operations/\${build_id}")
+                # get state from the build information.
+                state=\$(jq -r ".index_image_resolved.state" <<< \${build_info})
+                case \${state} in
+                  "complete") break ;;
+                  "failed") break ;;
+                  *) echo -en "."; sleep 30; continue ;;
+                esac
+            done
+            echo
+            jq '{ "state": .state, "state_reason": .state_reason }' <<< \${build_info} | tee $(results.build_state.path)
+            test \${state} = "complete" && exit 0 || exit 1
+            SH
+            chmod +x ${TASKRUN}
+            echo -en "waiting for build state to exit..."
+            # adding timeout here due to the Task timeout not accepting $(params.buildTimeoutSeconds)
+            # as parameter.
+            timeout $(params.buildTimeoutSeconds) ${TASKRUN}
+            SYSEXIT=$?
+            [ ${SYSEXIT} -eq 124 ] && echo "Timeout while waiting for the build to finish"
+            exit ${SYSEXIT}
       volumes:
-        - name: service-secret
+        - name: service-account-secret
           secret:
-            secretName: $(params.IIB_SERVICE_SECRET)
-            defaultMode:
-              0400
-        - name: service-url-secret
-          secret:
-            secretName: $(params.IIB_SERVICE_URL_SECRET)
+            secretName: $(params.iibServiceAccountSecret)
             defaultMode:
               0400
