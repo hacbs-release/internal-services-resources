@@ -4,7 +4,7 @@ metadata:
   name: debug-secret
 spec:
   steps:
-    - name: debug kubeconfig
+    - name: debug-kubeconfig
       image: alpine
       script: |
         #!/bin/sh
