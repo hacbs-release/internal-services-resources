@@ -49,7 +49,6 @@ objects:
         - name: add-fbc-fragment-to-index-image
           taskRef:
             name: add-fbc-fragment-to-index-image
-            bundle: quay.io/hacbs-release/task-add-fbc-fragment-to-index-image:0.1
           params:
             - name: binaryImage
               value: $(params.binaryImage)
