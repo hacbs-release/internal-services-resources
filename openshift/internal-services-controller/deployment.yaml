@@ -23,6 +23,10 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      volumes:
+        - name: remote-client-config
+          secret:
+            secretName: remote-client-config
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -67,9 +71,15 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
+            - --remote-cluster-config-file
+            - /mnt/internal-services/remote-client-config/kubeconfig
           command:
             - /manager
           image: quay.io/scoheb/internal-services:main
+          volumeMounts:
+            - mountPath: "/mnt/internal-services/remote-client-config"
+              name: remote-client-config
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /healthz
