@@ -75,7 +75,7 @@ spec:
             - /mnt/internal-services/remote-client-config/kubeconfig
           command:
             - /manager
-          image: quay.io/scoheb/internal-services:main
+          image: quay.io/scoheb/internal-services:main2
           volumeMounts:
             - mountPath: "/mnt/internal-services/remote-client-config"
               name: remote-client-config
