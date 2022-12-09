@@ -123,12 +123,12 @@ objects:
             - name: IIB_SERVICE_URL
               valueFrom:
                 secretKeyRef:
-                  name: iib-production-services-config
+                  name: $(params.iibServiceConfigSecret)
                   key: url
             - name: IIB_OVERWRITE_FROM_INDEX_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: iib-production-services-config
+                  name: $(params.iibServiceConfigSecret)
                   key: overwriteFromIndexToken
           script: |
             #!/usr/bin/env bash
