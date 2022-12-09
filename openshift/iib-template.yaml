@@ -86,11 +86,9 @@ objects:
           description: FBC Image to be added to index image
         - name: iibServiceConfigSecret
           type: string
-          default: "iib-production-services-config"
           description: Secret with IIB service config to be used
         - name: iibServiceAccountSecret
           type: string
-          default: "iib-service-account"
           description: Secret with IIB credentials to be used
         - name: fbcFragment
           type: string
