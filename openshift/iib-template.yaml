@@ -46,9 +46,9 @@ objects:
       workspaces:
         - name: release-workspace
       tasks:
-        - name: task-add-fbc-fragment-to-index-image
+        - name: add-fbc-fragment-to-index-image
           taskRef:
-            name: task-add-fbc-fragment-to-index-image
+            name: add-fbc-fragment-to-index-image
           params:
             - name: binaryImage
               value: $(params.binaryImage)
