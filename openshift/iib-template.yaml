@@ -147,10 +147,8 @@ objects:
             JSON
 
             # performs kerberos authentication.
-            KRB5_KTNAME=/mnt/service-account-secret/keytab
-            export KRB5_KTNAME
-
-            /usr/bin/kinit -V $(cat /mnt/service-account-secret/principal) -k
+            base64 -d /mnt/service-account-secret/keytab > /tmp/keytab
+            /usr/bin/kinit -V $(cat /mnt/service-account-secret/principal) -k -t /tmp/keytab
 
             # adds image to the index.
             /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
