@@ -46,9 +46,9 @@ objects:
       workspaces:
         - name: release-workspace
       tasks:
-        - name: task-add-fbc-fragment-to-index-image
+        - name: t-add-fbc-fragment-to-index-image
           taskRef:
-            name: task-add-fbc-fragment-to-index-image
+            name: t-add-fbc-fragment-to-index-image
           params:
             - name: binaryImage
               value: $(params.binaryImage)
@@ -71,7 +71,7 @@ objects:
   - apiVersion: tekton.dev/v1beta1
     kind: Task
     metadata:
-      name: task-add-fbc-fragment-to-index-image
+      name: t-add-fbc-fragment-to-index-image
       labels:
         app.kubernetes.io/version: "0.1"
       annotations:
@@ -115,7 +115,7 @@ objects:
         - name: build_state
           description: IIB Service build state
       steps:
-        - name: add-fbc-fragment-to-index-image
+        - name: t-add-fbc-fragment-to-index-image
           image: quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
           env:
             - name: IIB_SERVICE_URL
@@ -129,7 +129,7 @@ objects:
                   name: $(params.iibServiceConfigSecret)
                   key: overwriteFromIndexToken
           script: |
-            #!/usr/bin/env bash
+            #!/usr/bin/env bash -x
             #
             # adds the json request parameters to a file to be used as input data
             # for curl and preventing shell expansion.
@@ -149,7 +149,7 @@ objects:
             KRB5_KTNAME=/mnt/service-account-secret/keytab
             export KRB5_KTNAME
 
-            /usr/bin/kinit $(cat /mnt/service-account-secret/principal) -k
+            /usr/bin/kinit -V $(cat /mnt/service-account-secret/principal) -k
 
             # adds image to the index.
             /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
@@ -160,7 +160,7 @@ objects:
           volumeMounts:
             - name: service-account-secret
               mountPath: /mnt/service-account-secret
-        - name: wait-for-build-state
+        - name: t-wait-for-build-state
           image: quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
           env:
             - name: IIB_SERVICE_URL
