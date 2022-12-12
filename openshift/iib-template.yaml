@@ -128,6 +128,11 @@ objects:
                 secretKeyRef:
                   name: $(params.iibServiceConfigSecret)
                   key: overwriteFromIndexToken
+            - name: KRB5_CONF_CONTENT
+              valueFrom:
+                secretKeyRef:
+                  name: $(params.iibServiceConfigSecret)
+                  key: krb5.conf
           script: |
             #!/usr/bin/env bash
             #
@@ -148,6 +153,10 @@ objects:
 
             # performs kerberos authentication.
             base64 -d /mnt/service-account-secret/keytab > /tmp/keytab
+
+            echo "${KRB5_CONF_CONTENT}" > /tmp/krb5.conf
+            export KRB5_CONFIG=/tmp/krb5.conf
+
             /usr/bin/kinit -V $(cat /mnt/service-account-secret/principal) -k -t /tmp/keytab
 
             # adds image to the index.
