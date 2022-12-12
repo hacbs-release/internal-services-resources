@@ -115,7 +115,7 @@ objects:
         - name: build_state
           description: IIB Service build state
       steps:
-        - name: t-add-fbc-fragment-to-index-image
+        - name: s-add-fbc-fragment-to-index-image
           image: quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
           env:
             - name: IIB_SERVICE_URL
@@ -161,7 +161,7 @@ objects:
           volumeMounts:
             - name: service-account-secret
               mountPath: /mnt/service-account-secret
-        - name: t-wait-for-build-state
+        - name: s-wait-for-build-state
           image: quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
           env:
             - name: IIB_SERVICE_URL
