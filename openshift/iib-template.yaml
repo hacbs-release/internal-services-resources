@@ -129,10 +129,11 @@ objects:
                   name: $(params.iibServiceConfigSecret)
                   key: overwriteFromIndexToken
           script: |
-            #!/usr/bin/env bash -x
+            #!/usr/bin/env bash
             #
             # adds the json request parameters to a file to be used as input data
             # for curl and preventing shell expansion.
+            set -x
             json_input=/tmp/$$.tmp
             cat > $json_input <<JSON
             {
