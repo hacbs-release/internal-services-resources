@@ -178,6 +178,7 @@ objects:
 
             # checks if the previous call returned an error.
             ! jq -e -r ".error | select( . != null )" $(results.json_build_info.path)
+            exit 0
           volumeMounts:
             - name: service-account-secret
               mountPath: /mnt/service-account-secret
