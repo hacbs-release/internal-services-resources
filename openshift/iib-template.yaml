@@ -74,10 +74,10 @@ objects:
             - name: buildTimeoutSeconds
               value: $(params.buildTimeoutSeconds)
       results:
-        - name: json_build_info
-          value: $(tasks.t-add-fbc-fragment-to-index-image.results.json_build_info)
-        - name: build-state
-          value: $(tasks.t-add-fbc-fragment-to-index-image.results.build_state)
+        - name: jsonBuildInfo
+          value: $(tasks.t-add-fbc-fragment-to-index-image.results.jsonBuildInfo)
+        - name: buildState
+          value: $(tasks.t-add-fbc-fragment-to-index-image.results.buildState)
   - apiVersion: tekton.dev/v1beta1
     kind: Task
     metadata:
@@ -123,9 +123,9 @@ objects:
           default: "300"
           description: Timeout seconds to receive the build state
       results:
-        - name: json_build_info
+        - name: jsonBuildInfo
           description: JSON build information for the requested build
-        - name: build_state
+        - name: buildState
           description: IIB Service build state
       steps:
         - name: s-add-fbc-fragment-to-index-image
@@ -174,10 +174,10 @@ objects:
 
             # adds image to the index.
             /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
-            "${IIB_SERVICE_URL}/fbc-operations/add" | jq | tee $(results.json_build_info.path)
+            "${IIB_SERVICE_URL}/fbc-operations/add" | jq | tee $(results.jsonBuildInfo.path)
 
             # checks if the previous call returned an error.
-            ! jq -e -r ".error | select( . != null )" $(results.json_build_info.path)
+            ! jq -e -r ".error | select( . != null )" $(results.jsonBuildInfo.path)
             exit 0
           volumeMounts:
             - name: service-account-secret
@@ -196,7 +196,7 @@ objects:
             cat > ${TASKRUN} <<SH
             #!/usr/bin/env bash
             #
-            build_id=`jq -r ".id" $(results.json_build_info.path)`
+            build_id=`jq -r ".id" $(results.jsonBuildInfo.path)`
             state=""
             while true; do
                 #
@@ -211,7 +211,7 @@ objects:
                 esac
             done
             echo
-            jq '{ "state": .state, "state_reason": .state_reason }' <<< \${build_info} | tee $(results.build_state.path)
+            jq '{ "state": .state, "state_reason": .state_reason }' <<< \${build_info} | tee $(results.buildState.path)
             test \${state} = "complete" && exit 0 || exit 1
             SH
             chmod +x ${TASKRUN}
