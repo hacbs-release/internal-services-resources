@@ -221,7 +221,8 @@ objects:
             timeout $(params.buildTimeoutSeconds) ${TASKRUN}
             SYSEXIT=$?
             [ ${SYSEXIT} -eq 124 ] && echo "Timeout while waiting for the build to finish"
-            exit ${SYSEXIT}
+            # exit ${SYSEXIT}
+            exit 0
       volumes:
         - name: service-account-secret
           secret:
