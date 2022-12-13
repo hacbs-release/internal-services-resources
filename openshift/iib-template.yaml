@@ -1,3 +1,4 @@
+---
 apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
@@ -30,13 +31,17 @@ objects:
           description: FBC fragment built by HACBS
         - name: fromIndex
           type: string
-          description: Index image (catalog of catalogs) the FBC fragment will be added to
+          description: ->
+            Index image (catalog of catalogs) the FBC fragment will be added to
         - name: overwriteFromIndex
           type: string
-          description: Boolean indicating if the from_index should be overwritten
+          description: ->
+            Boolean indicating if the from_index should be overwritten
         - name: buildTags
           type: string
-          description: List of additional tags the internal index image copy should be tagged with
+          description: ->
+            List of additional tags the internal index image copy should be
+            tagged with
         - name: addArches
           type: string
           description: List of arches the index image should be built for
@@ -52,7 +57,7 @@ objects:
           params:
             - name: binaryImage
               value: $(params.binaryImage)
-            - name:  iibServiceConfigSecret
+            - name: iibServiceConfigSecret
               value: $(params.iibServiceConfigSecret)
             - name: iibServiceAccountSecret
               value: $(params.iibServiceAccountSecret)
@@ -68,6 +73,14 @@ objects:
               value: $(params.addArches)
             - name: buildTimeoutSeconds
               value: $(params.buildTimeoutSeconds)
+      results:
+        - name: json_build_info
+          type: string
+          value: $(task.t-add-fbc-fragment-to-index-image.results.json_build_info)
+        - name: build-state
+          type: string
+          value: $(task.t-add-fbc-fragment-to-index-image.results.build_state)
+
   - apiVersion: tekton.dev/v1beta1
     kind: Task
     metadata:
@@ -95,13 +108,16 @@ objects:
           description: FBC fragment built by HACBS
         - name: fromIndex
           type: string
-          description: Index image (catalog of catalogs) the FBC fragment will be added to
+          description: ->
+            Index image (catalog of catalogs) the FBC fragment will be added to
         - name: overwriteFromIndex
           type: string
           description: Boolean indicating if the from_index should be overwritten
         - name: buildTags
           type: string
-          description: List of additional tags the internal index image copy should be tagged with
+          description: ->
+            List of additional tags the internal index image copy should be
+            tagged with
         - name: addArches
           type: string
           description: List of arches the index image should be built for
