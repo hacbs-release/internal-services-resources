@@ -75,9 +75,9 @@ objects:
               value: $(params.buildTimeoutSeconds)
       results:
         - name: json_build_info
-          value: $(task.t-add-fbc-fragment-to-index-image.results.json_build_info)
+          value: $(tasks.t-add-fbc-fragment-to-index-image.results.json_build_info)
         - name: build-state
-          value: $(task.t-add-fbc-fragment-to-index-image.results.build_state)
+          value: $(tasks.t-add-fbc-fragment-to-index-image.results.build_state)
   - apiVersion: tekton.dev/v1beta1
     kind: Task
     metadata:
