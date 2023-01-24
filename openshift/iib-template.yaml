@@ -1,4 +1,6 @@
 ---
+# this Pipeline requires tekton >= 0.38 as the results should be published even
+# in the case of task failure.
 apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
@@ -7,7 +9,7 @@ objects:
   - apiVersion: tekton.dev/v1beta1
     kind: Pipeline
     metadata:
-      name: simple-pipeline
+      name: iib
       labels:
         app.kubernetes.io/version: "0.1"
       annotations:
@@ -23,9 +25,11 @@ objects:
         - name: iibServiceConfigSecret
           type: string
           description: Secret containing IIB service Config
+          default: iib-services-config
         - name: iibServiceAccountSecret
           type: string
           description: Secret containing the credentials for IIB service
+          default: iib-service-account
         - name: fbcFragment
           type: string
           description: FBC fragment built by HACBS
@@ -91,15 +95,6 @@ objects:
       description: >-
         Submit a build request to add operator bundles to an index image
       params:
-        - name: binaryImage
-          type: string
-          description: FBC Image to be added to index image
-        - name: iibServiceConfigSecret
-          type: string
-          description: Secret with IIB service config to be used
-        - name: iibServiceAccountSecret
-          type: string
-          description: Secret with IIB credentials to be used
         - name: fbcFragment
           type: string
           description: FBC fragment built by HACBS
@@ -110,6 +105,11 @@ objects:
         - name: overwriteFromIndex
           type: string
           description: Boolean indicating if the from_index should be overwritten
+        - name: binaryImage
+          type: string
+          description: ->
+            OCP binary image to be baked into the index image. This image is used to
+            serve the index image content on customer clusters.
         - name: buildTags
           type: string
           description: ->
@@ -122,6 +122,12 @@ objects:
           type: string
           default: "300"
           description: Timeout seconds to receive the build state
+        - name: iibServiceConfigSecret
+          type: string
+          description: Secret with IIB service config to be used
+        - name: iibServiceAccountSecret
+          type: string
+          description: Secret with IIB credentials to be used
       results:
         - name: jsonBuildInfo
           description: JSON build information for the requested build
@@ -129,8 +135,8 @@ objects:
           description: IIB Service build state
       steps:
         - name: s-add-fbc-fragment-to-index-image
-          image: |
-              quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
+          image: >-
+              quay.io/hacbs-release/release-base-image@sha256:9e7fd1a3ccf0d2c8077f565c78e50862a7cc4792d548b5c01c8b09077e6d23a7
           env:
             - name: IIB_SERVICE_URL
               valueFrom:
@@ -152,16 +158,16 @@ objects:
             #
             # adds the json request parameters to a file to be used as input data
             # for curl and preventing shell expansion.
-            set -x
             json_input=/tmp/$$.tmp
             cat > $json_input <<JSON
             {
+              "fbc_fragment": $(params.fbcFragment),
               "from_index": "$(params.fromIndex)",
               "binary_image": "$(params.binaryImage)",
-              "overwrite_from_index_token": "${IIB_OVERWRITE_FROM_INDEX_TOKEN}",
+              "build_tags": $(params.buildTags),
+              "add_arches": $(params.addArches),
               "overwrite_from_index": $(params.overwriteFromIndex),
-              "build_tags": $(params.buildTags)
-              "add_arches": $(params.addArches)
+              "overwrite_from_index_token": "${IIB_OVERWRITE_FROM_INDEX_TOKEN}",
             }
             JSON
 
@@ -173,19 +179,19 @@ objects:
 
             /usr/bin/kinit -V $(cat /mnt/service-account-secret/principal) -k -t /tmp/keytab
 
+            echo "Calling endpoint" > $(results.buildState.path)
             # adds image to the index.
             /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
-            "${IIB_SERVICE_URL}/fbc-operations/add" | jq | tee $(results.jsonBuildInfo.path)
+            "${IIB_SERVICE_URL}/builds/fbc-operations/" | jq | tee $(results.jsonBuildInfo.path)
 
             # checks if the previous call returned an error.
             ! jq -e -r ".error | select( . != null )" $(results.jsonBuildInfo.path)
-            exit 0
           volumeMounts:
             - name: service-account-secret
               mountPath: /mnt/service-account-secret
         - name: s-wait-for-build-state
-          image: |
-              quay.io/hacbs-release/release-utils@sha256:53d4cdd2ff8d1a0c6d1781d754678b4c61e6fefa644c17bd0a4e2ca4336a3e18
+          image: >-
+              quay.io/hacbs-release/release-base-image@sha256:9e7fd1a3ccf0d2c8077f565c78e50862a7cc4792d548b5c01c8b09077e6d23a7
           env:
             - name: IIB_SERVICE_URL
               valueFrom:
@@ -203,7 +209,7 @@ objects:
             while true; do
                 #
                 # fetching build information.
-                build_info=\$(/usr/bin/curl -s --insecure "\${IIB_SERVICE_URL}/fbc-operations/\${build_id}")
+                build_info=\$(/usr/bin/curl -s --insecure "\${IIB_SERVICE_URL}/builds/\${build_id}")
                 # get state from the build information.
                 state=\$(jq -r ".index_image_resolved.state" <<< \${build_info})
                 case \${state} in
@@ -222,9 +228,11 @@ objects:
             # as parameter.
             timeout $(params.buildTimeoutSeconds) ${TASKRUN}
             SYSEXIT=$?
-            [ ${SYSEXIT} -eq 124 ] && echo "Timeout while waiting for the build to finish"
-            # exit ${SYSEXIT}
-            exit 0
+            if [ ${SYSEXIT} -eq 124 ]; then
+                echo "Timeout while waiting for the build to finish"
+                echo "Build timeout" < $(results.buildState.path)
+            fi
+            exit ${SYSEXIT}
       volumes:
         - name: service-account-secret
           secret:
