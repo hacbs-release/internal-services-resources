@@ -5,7 +5,7 @@ metadata:
   annotations:
     resourceVersion: '1127528205'
   name: debug-pipeline
-  namespace: hacbs-internal-services
+  namespace: stonesoup-internal-services
   labels:
     app.kubernetes.io/version: '0.1'
 spec:
