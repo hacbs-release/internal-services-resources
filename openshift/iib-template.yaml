@@ -181,8 +181,8 @@ objects:
 
             echo "Calling endpoint" > $(results.buildState.path)
             # adds image to the index.
-            /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
-            "${IIB_SERVICE_URL}/builds/fbc-operations/" | jq | tee $(results.jsonBuildInfo.path)
+            /usr/bin/curl -v -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} \
+            --insecure "${IIB_SERVICE_URL}/builds/fbc-operations/" -o $(results.jsonBuildInfo.path)
 
             # checks if the previous call returned an error.
             ! jq -e -r ".error | select( . != null )" $(results.jsonBuildInfo.path)
