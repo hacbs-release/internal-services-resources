@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: rolebinding
     app.kubernetes.io/part-of: internal-services
   name: internal-services-leader-election-rolebinding
-  namespace: hacbs-internal-services
+  namespace: stonesoup-internal-services
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -18,4 +18,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: internal-services-controller-manager
-    namespace: hacbs-internal-services
+    namespace: stonesoup-internal-services

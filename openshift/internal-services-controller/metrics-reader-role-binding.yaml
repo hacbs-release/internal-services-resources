@@ -17,4 +17,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: internal-services-controller-manager
-    namespace: hacbs-internal-services
+    namespace: stonesoup-internal-services
