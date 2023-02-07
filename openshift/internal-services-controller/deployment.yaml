@@ -76,7 +76,7 @@ spec:
             - /mnt/internal-services/remote-client-config/kubeconfig
           command:
             - /manager
-          image: quay.io/redhat-appstudio/internal-services:fdb328071717d4136fec5144c06c77893b0750cd
+          image: quay.io/redhat-appstudio/internal-services:5d590262c067ee78acbb8c410accd1f99af712ac
           volumeMounts:
             - mountPath: "/mnt/internal-services/remote-client-config"
               name: remote-client-config
