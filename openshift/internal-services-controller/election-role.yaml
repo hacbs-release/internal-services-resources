@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: role
     app.kubernetes.io/part-of: internal-services
   name: internal-services-leader-election-role
-  namespace: stonesoup-internal-services
+  namespace: stonesoup-int-srvc
 rules:
   - apiGroups:
       - ""

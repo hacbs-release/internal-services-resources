@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/part-of: internal-services
     control-plane: controller-manager
   name: internal-services-controller-manager-metrics-service
-  namespace: stonesoup-internal-services
+  namespace: stonesoup-int-srvc
 spec:
   ports:
     - name: https
