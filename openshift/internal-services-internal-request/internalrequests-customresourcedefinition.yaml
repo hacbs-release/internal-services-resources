@@ -15,27 +15,34 @@ spec:
     singular: internalrequest
   scope: Namespaced
   versions:
-    - name: v1alpha1
+    - additionalPrinterColumns:
+        - jsonPath: .status.conditions[?(@.type=="InternalRequestSucceeded")].status
+          name: Succeeded
+          type: string
+        - jsonPath: .status.conditions[?(@.type=="InternalRequestSucceeded")].reason
+          name: Reason
+          type: string
+      name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: InternalRequest is the Schema for the internalrequests API
+          description: InternalRequest is the Schema for the internalrequests API.
           properties:
             apiVersion:
-              description: |
-                'APIVersion defines the versioned schema of this representation of an object. Servers should convert
-                recognized schemas to the latest internal value, and may reject unrecognized values. More info:
+              description: 'APIVersion defines the versioned schema of this representation
+                of an object. Servers should convert recognized schemas to the latest
+                internal value, and may reject unrecognized values. More info:
                 https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
               type: string
             kind:
-              description: |
-                'Kind is a string value representing the REST resource this object represents. Servers may
-                infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info:
+              description: 'Kind is a string value representing the REST resource this
+                object represents. Servers may infer this from the endpoint the client
+                submits requests to. Cannot be updated. In CamelCase. More info:
                 https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
               type: string
             metadata:
               type: object
             spec:
-              description: InternalRequestSpec defines the desired state of InternalRequest
+              description: InternalRequestSpec defines the desired state of InternalRequest.
               properties:
                 params:
                   additionalProperties:
@@ -52,21 +59,25 @@ spec:
                 - request
               type: object
             status:
-              description: InternalRequestStatus defines the observed state of InternalRequest
+              description: InternalRequestStatus defines the observed state of InternalRequest.
               properties:
+                completionTime:
+                  description: CompletionTime is the time the Release PipelineRun completed
+                  format: date-time
+                  type: string
                 conditions:
                   description: Conditions represent the latest available observations
                     for the internalrequest
                   items:
                     description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    \n type FooStatus struct{ // Represents the observations of a
-                    foo's current state. // Known .status.conditions.type are: \"Available\",
-                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
-                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
-                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
-                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                      state of this API Resource. --- This struct is intended for direct
+                      use as an array at the field path .status.conditions.  For example,
+                      \n type FooStatus struct{ // Represents the observations of a
+                      foo's current state. // Known .status.conditions.type are: \"Available\",
+                      \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                      // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                      `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                      protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                     properties:
                       lastTransitionTime:
                         description: lastTransitionTime is the last time the condition
@@ -114,8 +125,8 @@ spec:
                           (see .node.status.conditions), the ability to deconflict is
                           important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                         maxLength: 316
-                        pattern: |
-                            ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        pattern: |-
+                          ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
                     required:
                       - lastTransitionTime
@@ -129,8 +140,13 @@ spec:
                   additionalProperties:
                     type: string
                   description: Results is the list of optional results as seen in the
-                    Tekton pipeline kubebuilder:pruning:PreserveUnknownFields
+                    Tekton PipelineRun kubebuilder:pruning:PreserveUnknownFields
                   type: object
+                startTime:
+                  description: StartTime is the time when the Release PipelineRun was
+                    created and set to run
+                  format: date-time
+                  type: string
               type: object
           type: object
       served: true
