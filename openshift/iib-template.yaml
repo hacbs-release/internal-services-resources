@@ -21,6 +21,7 @@ objects:
       params:
         - name: binaryImage
           type: string
+          default: ""
           description: The Snapshot in JSON format
         - name: iibServiceConfigSecret
           type: string
@@ -39,15 +40,18 @@ objects:
             Index image (catalog of catalogs) the FBC fragment will be added to
         - name: overwriteFromIndex
           type: string
+          default: "false"
           description: ->
             Boolean indicating if the from_index should be overwritten
         - name: buildTags
           type: string
+          default: '[]'
           description: ->
             List of additional tags the internal index image copy should be
             tagged with
         - name: addArches
           type: string
+          default: '[]'
           description: List of arches the index image should be built for
         - name: buildTimeoutSeconds
           type: string
@@ -159,17 +163,26 @@ objects:
             # adds the json request parameters to a file to be used as input data
             # for curl and preventing shell expansion.
             json_input=/tmp/$$.tmp
-            cat > $json_input <<JSON
+            json_raw_input=/tmp/$$_raw.tmp
+
+            cat > $json_raw_input <<JSON
             {
-              "fbc_fragment": $(params.fbcFragment),
+              "fbc_fragment": "$(params.fbcFragment)",
               "from_index": "$(params.fromIndex)",
               "binary_image": "$(params.binaryImage)",
-              "build_tags": $(params.buildTags),
-              "add_arches": $(params.addArches),
-              "overwrite_from_index": $(params.overwriteFromIndex),
-              "overwrite_from_index_token": "${IIB_OVERWRITE_FROM_INDEX_TOKEN}",
+              "build_tags": `echo $(params.buildTags)`,
+              "add_arches": `echo $(params.addArches)`,
+              "overwriteFromIndex": "$(params.overwriteFromIndex)",
+              "overwriteFromIndexToken": "${IIB_OVERWRITE_FROM_INDEX_TOKEN}"
             }
             JSON
+
+            # filtering out empty params
+            jq -r '
+              if .binary_image == "" then del(.binary_image) else . end |
+              if .overwriteFromIndex == "false" then del(( .overwriteFromIndex, .overwriteFromIndexToken)) else . end |
+              if(.add_arches | length) == 0 then del(.add_arches) else . end |
+              if(.build_tags | length) == 0 then del(.build_tags) else . end' ${json_raw_input} > ${json_input}
 
             # performs kerberos authentication.
             base64 -d /mnt/service-account-secret/keytab > /tmp/keytab
@@ -182,7 +195,7 @@ objects:
             echo "Calling endpoint" > $(results.buildState.path)
             # adds image to the index.
             /usr/bin/curl -u : --negotiate -s -X POST -H "Content-Type: application/json" -d@${json_input} --insecure \
-            "${IIB_SERVICE_URL}/builds/fbc-operations/" | jq | tee $(results.jsonBuildInfo.path)
+            "${IIB_SERVICE_URL}/builds/fbc-operations" |tee $(results.jsonBuildInfo.path)
 
             # checks if the previous call returned an error.
             ! jq -e -r ".error | select( . != null )" $(results.jsonBuildInfo.path)
@@ -201,6 +214,7 @@ objects:
           script: |
             #!/usr/bin/env bash
             TASKRUN="/tmp/$$.sh"
+
             cat > ${TASKRUN} <<SH
             #!/usr/bin/env bash
             #
@@ -211,7 +225,7 @@ objects:
                 # fetching build information.
                 build_info=\$(/usr/bin/curl -s --insecure "\${IIB_SERVICE_URL}/builds/\${build_id}")
                 # get state from the build information.
-                state=\$(jq -r ".index_image_resolved.state" <<< \${build_info})
+                state=\$(jq -r ".state" <<< \${build_info})
                 case \${state} in
                   "complete") break ;;
                   "failed") break ;;
