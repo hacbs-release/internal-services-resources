@@ -56,8 +56,6 @@ objects:
         - name: buildTimeoutSeconds
           type: string
           description: IIB Build Service timeout seconds
-      workspaces:
-        - name: release-workspace
       tasks:
         - name: t-add-fbc-fragment-to-index-image
           taskRef:
